@@ -1,0 +1,92 @@
+trigger:
+- main
+
+pool:
+  name: pocagent
+variables:
+  - group: Docker credentials
+  - group: DockerImages
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '16.x'
+  displayName: 'Install Node.js'
+  
+- task: Npm@1
+  inputs:
+    command: 'custom'
+    customCommand: 'install -g @angular/cli'
+
+- task: Npm@1
+  inputs:
+    command: 'install'
+    workingDir: 'MongoDBAngular13'
+
+- task: CmdLine@2
+  inputs:
+    script: 'npm install karma-junit-reporter --save-dev'
+
+
+- task: Npm@1
+  inputs:
+    command: 'custom'
+    workingDir: 'MongoDBAngular13'
+    customCommand: 'run build'
+  
+- task: CmdLine@2
+  inputs:
+    script: 'ng test --browsers=ChromeHeadless --code-coverage --watch=false'
+    workingDirectory: 'MongoDBAngular13'
+- task: dependency-check-build-task@6
+  inputs:
+    projectName: 'finalpoc'
+    scanPath: '.'
+    format: 'HTML'
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'testresults/junit/unit-test-result.xml'
+    searchFolder: '$(System.DefaultWorkingDirectory)/MongoDBAngular13'
+    mergeTestResults: true
+- task: SonarQubePrepare@5
+  inputs:
+    SonarQube: 'SonarQube'
+    scannerMode: 'CLI'
+    configMode: 'manual'
+    cliProjectKey: 'finalpoc'
+    cliProjectName: 'finalpoc'
+    cliSources: '.'
+    extraProperties: 'sonar.java.binaries='
+- task: SonarQubeAnalyze@5
+- task: CmdLine@2
+  inputs:
+    script: |
+      cd MongoDBAngular13
+      mv Dockerfile dist/mongo-dbangular13
+
+- task: CmdLine@2
+  inputs:
+    script: |
+      cd MongoDBAngular13/dist/mongo-dbangular13
+      sudo docker build -t $(frontend) .
+      sudo docker login -u $(DockerUsername) -p $(DockerPassword)
+      sudo docker push pratyusha2001/frontend
+
+- task: CmdLine@2
+  inputs:
+    script: |
+        cd Backend
+        sudo docker build -t pratyusha2001/backend .
+        sudo docker push pratyusha2001/backend
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/MongoDBAngular13/dist'
+    ArtifactName: 'pocArtifact'
+    publishLocation: 'Container'
+- task: Npm@1
+  inputs:
+    command: 'publish'
+    workingDir: 'MongoDBAngular13'
+    publishRegistry: 'useFeed'
+    publishFeed: 'e7965775-f7a2-4e9c-8518-c66d38d0d49c'

@@ -1,0 +1,19 @@
+---
+- name: Deploy Frontend Helm Chart
+  hosts: Master
+  tasks:
+    - name: Copy Helm chart
+      copy:
+        src: /home/azureuser/frontend-helm
+        dest: /home/ubuntu/
+      become: yes
+   
+    - name: Install Helm chart
+      command: helm upgrade --install frontend /home/ubuntu/frontend-helm --kubeconfig ~/.kube/config
+      register: helm_output
+      ignore_errors: true
+    
+    - name: Debug Helm output
+      debug:
+       var: helm_output
+
